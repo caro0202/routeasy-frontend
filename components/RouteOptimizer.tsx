@@ -71,15 +71,11 @@ export default function RouteOptimizer() {
 
       const route = Array.isArray(data.route) ? data.route : [];
 
-      if (route.length < 2) {
-        setError("Nenhuma rota válida encontrada.");
-        return;
-      }
-
       setResult({
         route,
         distance: Number(data.totalDistance) || 0,
-        duration: Number(data.estimatedDuration) || 0
+        duration: Number(data.estimatedDuration) || 0,
+        invalid: data.invalidAddresses || data.invalid || []
       });
 
       saveToHistory(input);
@@ -89,6 +85,14 @@ export default function RouteOptimizer() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 🔥 FORMATADOR DE TEMPO
+  const formatDuration = (min: number) => {
+    if (min < 60) return `${Math.round(min)} min`;
+    const h = Math.floor(min / 60);
+    const m = Math.round(min % 60);
+    return `${h}h ${m}min`;
   };
 
   const openGoogleMaps = () => {
@@ -147,12 +151,7 @@ export default function RouteOptimizer() {
 
               <label className={styles.uploadBtn}>
                 📁 Carregar CSV
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileUpload}
-                  hidden
-                />
+                <input type="file" accept=".csv" onChange={handleFileUpload} hidden />
               </label>
 
               {fileName && <p className={styles.fileName}>{fileName}</p>}
@@ -171,26 +170,17 @@ export default function RouteOptimizer() {
 
                     <div className={styles.stat}>
                       <span className={styles.statValue}>
-                        {Math.round(result.duration)} min
+                        {formatDuration(result.duration)}
                       </span>
                     </div>
                   </div>
 
-                  {/* BOTÕES BONITOS */}
                   <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-                    <button
-                      className={styles.button}
-                      style={{ background: "#34A853" }}
-                      onClick={openGoogleMaps}
-                    >
+                    <button className={styles.button} style={{ background: "#34A853" }} onClick={openGoogleMaps}>
                       📍 Abrir no Maps
                     </button>
 
-                    <button
-                      className={styles.button}
-                      style={{ background: "#1F9DE7" }}
-                      onClick={openWaze}
-                    >
+                    <button className={styles.button} style={{ background: "#1F9DE7" }} onClick={openWaze}>
                       🚗 Abrir no Waze
                     </button>
                   </div>
@@ -228,6 +218,19 @@ export default function RouteOptimizer() {
                   >
                     Limpar histórico
                   </button>
+                </div>
+              )}
+
+              {/* 🔥 ENDEREÇOS INVÁLIDOS */}
+              {result?.invalid?.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <strong style={{ color: "#b91c1c" }}>Endereços inválidos:</strong>
+
+                  {result.invalid.map((addr: string, i: number) => (
+                    <div key={i} style={{ fontSize: 12, color: "#b91c1c" }}>
+                      • {addr}
+                    </div>
+                  ))}
                 </div>
               )}
 
