@@ -29,10 +29,13 @@ export default function RouteOptimizer() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [slowMsg, setSlowMsg] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    setFileName(file.name);
 
     const reader = new FileReader();
 
@@ -150,7 +153,7 @@ export default function RouteOptimizer() {
           <div className={styles.panel}>
             <div className={styles.inputSection}>
               <label className={styles.label}>
-                Insira os endereços manualmente na caixa abaixo e clique "Otimizar Rota":
+                Insira os endereços na caixa abaixo e clique "Otimizar Rota":
               </label>
 
               <textarea
@@ -160,22 +163,38 @@ export default function RouteOptimizer() {
                 rows={8}
               />
 
-              {/* 🔥 BOTÃO AGORA ACIMA DO TEXTO */}
               <button className={styles.button} onClick={handleOptimize}>
                 {loading ? "Calculando..." : "Otimizar Rota"}
               </button>
 
-              {/* 🔥 TEXTO EXPLICATIVO */}
               <p style={{ marginTop: 10, fontSize: "14px", color: "#555" }}>
-                Ou, se preferir, importe na caixinha abaixo um arquivo de formato CSV para upload massivo os endereços.
+                Ou se preferir, suba um arquivo CSV para carregar vários endereços de uma vez.
               </p>
 
-              {/* 🔥 INPUT CSV */}
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFileUpload}
-              />
+              {/* 🔥 BOTÃO CUSTOM CSV */}
+              <label style={{
+                display: "inline-block",
+                background: "#f1f3f5",
+                padding: "10px 16px",
+                borderRadius: 6,
+                cursor: "pointer",
+                marginTop: 8,
+                border: "1px solid #ddd"
+              }}>
+                📁 Carregar CSV
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  style={{ display: "none" }}
+                />
+              </label>
+
+              {fileName && (
+                <p style={{ marginTop: 6, fontSize: "13px", color: "#666" }}>
+                  Arquivo: {fileName}
+                </p>
+              )}
 
               {error && <div className={styles.error}>{error}</div>}
 
