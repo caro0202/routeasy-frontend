@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import styles from "./RouteOptimizer.module.css";
 
@@ -11,214 +11,116 @@ interface RouteStop {
   lat: number;
   lng: number;
   stopIndex: number;
-  distanceToNext: number | null;
 }
 
 interface OptimizeResult {
   route: RouteStop[];
-  invalidAddresses: string[];
   totalDistance: number;
   estimatedDuration: number;
 }
 
-const EXAMPLE_ADDRESSES = `Rua A, São Paulo\nAv. Paulista, 1000, São Paulo\nAeroporto de Guarulhos, SP`;
-
 export default function RouteOptimizer() {
-  const [input, setInput] = useState(EXAMPLE_ADDRESSES);
+  const [input, setInput] = useState("");
   const [result, setResult] = useState<OptimizeResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  // 🔥 carregar histórico ao abrir
+  useEffect(() => {
+    const saved = localStorage.getItem("route_history");
+    if (saved) setHistory(JSON.parse(saved));
+  }, []);
 
-    setFileName(file.name);
-
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-
-      const lines = text
-        .split("\n")
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0);
-
-      setInput(lines.join("\n"));
-    };
-
-    reader.readAsText(file);
+  // 🔥 salvar no histórico
+  const saveToHistory = (data: string) => {
+    const updated = [data, ...history].slice(0, 5);
+    setHistory(updated);
+    localStorage.setItem("route_history", JSON.stringify(updated));
   };
 
   const handleOptimize = async () => {
-    setError(null);
-    setResult(null);
+    const lines = input.split("\n").filter((l) => l.trim());
 
-    const lines = input
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
+    if (lines.length < 2) return;
 
-    setLoading(true);
+    const res = await fetch("https://routeasy-backend.onrender.com/optimize", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ addresses: lines }),
+    });
 
-    try {
-      const res = await fetch("https://routeasy-backend.onrender.com/optimize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ addresses: lines }),
-      });
+    const data = await res.json();
 
-      const data = await res.json();
-
-      setResult({
-        route: Array.isArray(data.route) ? data.route : [],
-        invalidAddresses: Array.isArray(data.invalidAddresses) ? data.invalidAddresses : [],
-        totalDistance: data.totalDistance ?? 0,
-        estimatedDuration: data.estimatedDuration ?? 0,
-      });
-
-    } catch {
-      setError("Não foi possível conectar ao servidor.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatDuration = (minutes: number) => {
-    const total = Math.round(minutes);
-    const h = Math.floor(total / 60);
-    const m = total % 60;
-
-    if (h === 0) return `${m} min`;
-    if (m === 0) return `${h}h`;
-    return `${h}h ${m}min`;
-  };
-
-  const openGoogleMaps = () => {
-    if (!result?.route?.length) return;
-
-    const url =
-      "https://www.google.com/maps/dir/" +
-      result.route.map((s) => `${s.lat},${s.lng}`).join("/");
-
-    window.open(url, "_blank");
-  };
-
-  const openWaze = () => {
-    if (!result?.route?.length) return;
-
-    const first = result.route[0];
-    const url = `https://waze.com/ul?ll=${first.lat},${first.lng}&navigate=yes`;
-
-    window.open(url, "_blank");
+    setResult(data);
+    saveToHistory(input);
   };
 
   const mapLocations = result?.route ?? [];
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <div className={styles.logo}>⏱️Caro's Route Planner</div>
-          <p className={styles.tagline}>
-            Encontre a ordem mais eficiente para suas paradas
-          </p>
-        </div>
-      </header>
+      <div className={styles.container}>
 
-      <main className={styles.main}>
-        <div className={styles.container}>
-          <div className={styles.panel}>
-            <div className={styles.inputSection}>
-              <label className={styles.label}>
-                Insira os endereços na caixa abaixo e clique "Otimizar Rota":
-              </label>
+        {/* 🔹 PAINEL */}
+        <div className={styles.panel}>
+          <div className={styles.inputSection}>
 
-              <textarea
-                className={styles.textarea}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                rows={8}
-              />
+            <textarea
+              className={styles.textarea}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Digite endereços..."
+            />
 
-              <button className={styles.button} onClick={handleOptimize}>
-                {loading ? "Calculando..." : "Otimizar Rota"}
-              </button>
+            <button className={styles.button} onClick={handleOptimize}>
+              Otimizar Rota
+            </button>
 
-              {/* 🔥 BLOCO CSV (SEM QUEBRAR LAYOUT) */}
-              <p style={{ marginTop: 12, fontSize: "13px", color: "#666" }}>
-                Ou se preferir, carregue um arquivo CSV com vários endereços:
-              </p>
+            {/* 🔥 HISTÓRICO */}
+            {history.length > 0 && (
+              <div>
+                <h4 style={{ marginTop: 16 }}>Histórico</h4>
 
-              <label
-                style={{
-                  display: "inline-block",
-                  padding: "8px 14px",
-                  borderRadius: 6,
-                  border: "1px solid #ddd",
-                  background: "#f9f9f9",
-                  cursor: "pointer",
-                  marginTop: 6
-                }}
-              >
-                📁 Carregar CSV
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileUpload}
-                  style={{ display: "none" }}
-                />
-              </label>
-
-              {fileName && (
-                <p style={{ fontSize: "12px", color: "#777", marginTop: 4 }}>
-                  {fileName}
-                </p>
-              )}
-
-              {error && <div className={styles.error}>{error}</div>}
-
-              {result?.route?.length >= 2 && (
-                <>
-                  <div className={styles.stats}>
-                    <div className={styles.stat}>
-                      <span className={styles.statValue}>
-                        {result.totalDistance.toFixed(2)} km
-                      </span>
-                      <span className={styles.statLabel}>Distância Total</span>
-                    </div>
-
-                    <div className={styles.stat}>
-                      <span className={styles.statValue}>
-                        {formatDuration(result.estimatedDuration)}
-                      </span>
-                      <span className={styles.statLabel}>Tempo Estimado</span>
-                    </div>
-
-                    <div className={styles.stat}>
-                      <span className={styles.statValue}>
-                        {result.route.length}
-                      </span>
-                      <span className={styles.statLabel}>Paradas</span>
-                    </div>
+                {history.map((item, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: 8,
+                      border: "1px solid #ddd",
+                      borderRadius: 6,
+                      marginTop: 6,
+                      cursor: "pointer"
+                    }}
+                    onClick={() => setInput(item)}
+                  >
+                    {item.split("\n")[0]}...
                   </div>
+                ))}
 
-                  <div style={{ display: "flex", gap: 10, marginTop: 15 }}>
-                    <button onClick={openGoogleMaps}>📍 Google Maps</button>
-                    <button onClick={openWaze}>🚗 Waze</button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className={styles.mapPanel}>
-            <MapView locations={mapLocations} />
+                <button
+                  style={{
+                    marginTop: 10,
+                    fontSize: 12,
+                    color: "red"
+                  }}
+                  onClick={() => {
+                    setHistory([]);
+                    localStorage.removeItem("route_history");
+                  }}
+                >
+                  Limpar histórico
+                </button>
+              </div>
+            )}
           </div>
         </div>
-      </main>
+
+        {/* 🔹 MAPA */}
+        <div className={styles.mapPanel}>
+          <MapView locations={mapLocations} />
+        </div>
+      </div>
     </div>
   );
 }
