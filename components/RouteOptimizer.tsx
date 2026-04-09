@@ -29,9 +29,11 @@ export default function RouteOptimizer() {
   const [input, setInput] = useState(EXAMPLE_ADDRESSES);
   const [result, setResult] = useState<OptimizeResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [slowMsg, setSlowMsg] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
+  const [fileName, setFileName] = useState<string | null>(null);
 
-  // 🔥 carregar histórico
   useEffect(() => {
     const saved = localStorage.getItem("route_history");
     if (saved) setHistory(JSON.parse(saved));
@@ -43,13 +45,50 @@ export default function RouteOptimizer() {
     localStorage.setItem("route_history", JSON.stringify(updated));
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setFileName(file.name);
+
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+
+      const lines = text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+
+      setInput(lines.join("\n"));
+    };
+
+    reader.readAsText(file);
+  };
+
   const handleOptimize = async () => {
     setError(null);
+    setResult(null);
 
     const lines = input
       .split("\n")
       .map((l) => l.trim())
-      .filter((l) => l);
+      .filter((l) => l.length > 0);
+
+    if (lines.length < 2) {
+      setError("Por favor, insira pelo menos 2 endereços.");
+      return;
+    }
+
+    if (lines.length > 50) {
+      setError("Por favor, insira no máximo 50 endereços.");
+      return;
+    }
+
+    setLoading(true);
+    setSlowMsg(false);
+    const slowTimer = setTimeout(() => setSlowMsg(true), 8000);
 
     try {
       const res = await fetch("https://routeasy-backend.onrender.com/optimize", {
@@ -67,7 +106,6 @@ export default function RouteOptimizer() {
         return;
       }
 
-      // 🔥 ALINHADO COM BACKEND
       setResult({
         route: data.route || [],
         invalidAddresses: data.invalidAddresses || [],
@@ -79,7 +117,21 @@ export default function RouteOptimizer() {
 
     } catch {
       setError("Não foi possível conectar ao servidor.");
+    } finally {
+      clearTimeout(slowTimer);
+      setSlowMsg(false);
+      setLoading(false);
     }
+  };
+
+  const formatDuration = (minutes: number) => {
+    const total = Math.round(minutes);
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+
+    if (h === 0) return `${m} min`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}min`;
   };
 
   const openGoogleMaps = () => {
@@ -115,7 +167,6 @@ export default function RouteOptimizer() {
       <main className={styles.main}>
         <div className={styles.container}>
 
-          {/* 🔹 NÃO ALTERAR */}
           <div className={styles.panel}>
             <div className={styles.inputSection}>
 
@@ -131,13 +182,30 @@ export default function RouteOptimizer() {
               />
 
               <button className={styles.button} onClick={handleOptimize}>
-                Otimizar Rota
+                {loading ? (slowMsg ? "Aguardando servidor..." : "Calculando...") : "Otimizar Rota"}
               </button>
+
+              {/* CSV RESTAURADO */}
+              <p className={styles.helperText}>
+                Ou carregue um arquivo CSV com vários endereços:
+              </p>
+
+              <label className={styles.uploadBtn}>
+                📁 Carregar CSV
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  hidden
+                />
+              </label>
+
+              {fileName && <p className={styles.fileName}>{fileName}</p>}
 
               {error && <div className={styles.error}>{error}</div>}
 
-              {/* 🔥 RESULTADO */}
-              {result && result.route.length > 1 && (
+              {/* RESULTADO */}
+              {result?.route?.length >= 2 && (
                 <>
                   <div className={styles.stats}>
                     <div className={styles.stat}>
@@ -149,7 +217,7 @@ export default function RouteOptimizer() {
 
                     <div className={styles.stat}>
                       <span className={styles.statValue}>
-                        {Math.round(result.estimatedDuration)} min
+                        {formatDuration(result.estimatedDuration)}
                       </span>
                       <span className={styles.statLabel}>Tempo</span>
                     </div>
@@ -162,7 +230,7 @@ export default function RouteOptimizer() {
                 </>
               )}
 
-              {/* 🔥 HISTÓRICO (SEM QUEBRAR LAYOUT) */}
+              {/* HISTÓRICO */}
               {history.length > 0 && (
                 <div style={{ marginTop: 12 }}>
                   <strong>Histórico</strong>
@@ -199,7 +267,6 @@ export default function RouteOptimizer() {
             </div>
           </div>
 
-          {/* 🔹 NÃO ALTERAR */}
           <div className={styles.mapPanel}>
             <MapView locations={mapLocations} />
           </div>
