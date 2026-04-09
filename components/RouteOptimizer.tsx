@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import * as XLSX from "xlsx";
 import styles from "./RouteOptimizer.module.css";
 
 const MapView = dynamic(() => import("./MapView"), { ssr: false });
@@ -31,68 +30,26 @@ export default function RouteOptimizer() {
   const [loading, setLoading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
-  // 🔥 PROCESSAR ARQUIVO
-  const processFile = (file: File) => {
-    setFileName(file.name);
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
+    setFileName(file.name);
 
     const reader = new FileReader();
 
     reader.onload = (e) => {
-      let lines: string[] = [];
+      const text = e.target?.result as string;
 
-      if (isExcel) {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
+      const lines = text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
 
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
-
-        lines = json
-          .flat()
-          .map((l) => String(l).trim())
-          .filter((l) => l.length > 0);
-
-      } else {
-        const text = e.target?.result as string;
-
-        lines = text
-          .split("\n")
-          .map((l) => l.trim())
-          .filter((l) => l.length > 0);
-      }
-
-      // 🔥 VALIDAÇÃO
-      if (lines.length < 2) {
-        setError("Arquivo precisa ter pelo menos 2 endereços.");
-        return;
-      }
-
-      if (lines.length > 50) {
-        setError("Máximo de 50 endereços permitido.");
-        return;
-      }
-
-      setError(null);
       setInput(lines.join("\n"));
     };
 
-    if (isExcel) reader.readAsArrayBuffer(file);
-    else reader.readAsText(file);
-  };
-
-  // 🔥 INPUT FILE
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processFile(file);
-  };
-
-  // 🔥 DRAG & DROP
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) processFile(file);
+    reader.readAsText(file);
   };
 
   const handleOptimize = async () => {
@@ -123,20 +80,61 @@ export default function RouteOptimizer() {
       });
 
     } catch {
-      setError("Erro ao conectar ao servidor.");
+      setError("Não foi possível conectar ao servidor.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatDuration = (minutes: number) => {
+    const total = Math.round(minutes);
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+
+    if (h === 0) return `${m} min`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}min`;
+  };
+
+  const openGoogleMaps = () => {
+    if (!result?.route?.length) return;
+
+    const url =
+      "https://www.google.com/maps/dir/" +
+      result.route.map((s) => `${s.lat},${s.lng}`).join("/");
+
+    window.open(url, "_blank");
+  };
+
+  const openWaze = () => {
+    if (!result?.route?.length) return;
+
+    const first = result.route[0];
+    const url = `https://waze.com/ul?ll=${first.lat},${first.lng}&navigate=yes`;
+
+    window.open(url, "_blank");
   };
 
   const mapLocations = result?.route ?? [];
 
   return (
     <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
+          <div className={styles.logo}>⏱️Caro's Route Planner</div>
+          <p className={styles.tagline}>
+            Encontre a ordem mais eficiente para suas paradas
+          </p>
+        </div>
+      </header>
+
       <main className={styles.main}>
         <div className={styles.container}>
           <div className={styles.panel}>
             <div className={styles.inputSection}>
+              <label className={styles.label}>
+                Insira os endereços na caixa abaixo e clique "Otimizar Rota":
+              </label>
 
               <textarea
                 className={styles.textarea}
@@ -149,36 +147,70 @@ export default function RouteOptimizer() {
                 {loading ? "Calculando..." : "Otimizar Rota"}
               </button>
 
-              {/* 🔥 DRAG & DROP */}
-              <div
-                onDrop={handleDrop}
-                onDragOver={(e) => e.preventDefault()}
+              {/* 🔥 BLOCO CSV AJUSTADO (SEM QUEBRAR LAYOUT) */}
+              <p style={{ marginTop: 12, fontSize: "14px", color: "#555" }}>
+                Ou se preferir, carregue um arquivo CSV com vários endereços:
+              </p>
+
+              <label
                 style={{
-                  marginTop: 12,
-                  padding: 20,
-                  border: "2px dashed #ccc",
-                  borderRadius: 8,
-                  textAlign: "center",
+                  display: "inline-block",
+                  background: "#f1f3f5",
+                  padding: "8px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #ddd",
                   cursor: "pointer",
+                  marginTop: 6
                 }}
               >
-                Arraste um arquivo CSV ou Excel aqui
-              </div>
-
-              {/* 🔥 BOTÃO */}
-              <label style={{ display: "block", marginTop: 10 }}>
-                📁 Ou clique para carregar arquivo
+                📁 Carregar CSV
                 <input
                   type="file"
-                  accept=".csv,.xlsx,.xls"
+                  accept=".csv"
                   onChange={handleFileUpload}
                   style={{ display: "none" }}
                 />
               </label>
 
-              {fileName && <p>Arquivo: {fileName}</p>}
+              {fileName && (
+                <p style={{ marginTop: 5, fontSize: "13px", color: "#666" }}>
+                  Arquivo: {fileName}
+                </p>
+              )}
+
               {error && <div className={styles.error}>{error}</div>}
 
+              {result?.route?.length >= 2 && (
+                <>
+                  <div className={styles.stats}>
+                    <div className={styles.stat}>
+                      <span className={styles.statValue}>
+                        {result.totalDistance.toFixed(2)} km
+                      </span>
+                      <span className={styles.statLabel}>Distância Total</span>
+                    </div>
+
+                    <div className={styles.stat}>
+                      <span className={styles.statValue}>
+                        {formatDuration(result.estimatedDuration)}
+                      </span>
+                      <span className={styles.statLabel}>Tempo Estimado</span>
+                    </div>
+
+                    <div className={styles.stat}>
+                      <span className={styles.statValue}>
+                        {result.route.length}
+                      </span>
+                      <span className={styles.statLabel}>Paradas</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 10, marginTop: 15 }}>
+                    <button onClick={openGoogleMaps}>📍 Abrir com Google Maps</button>
+                    <button onClick={openWaze}>🚗 Abrir com Waze</button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
