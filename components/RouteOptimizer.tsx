@@ -17,19 +17,16 @@ export default function RouteOptimizer() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<string[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
 
+  // 🔥 CARREGAR HISTÓRICO DO BACKEND
   useEffect(() => {
-    const saved = localStorage.getItem("route_history");
-    if (saved) setHistory(JSON.parse(saved));
+    fetch("https://routeasy-backend.onrender.com/history")
+      .then(res => res.json())
+      .then(data => setHistory(data))
+      .catch(() => console.log("Erro ao carregar histórico"));
   }, []);
-
-  const saveToHistory = (data: string) => {
-    const updated = [data, ...history].slice(0, 5);
-    setHistory(updated);
-    localStorage.setItem("route_history", JSON.stringify(updated));
-  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -71,14 +68,31 @@ export default function RouteOptimizer() {
 
       const route = Array.isArray(data.route) ? data.route : [];
 
-      setResult({
+      if (route.length < 2) {
+        setError("Nenhuma rota válida encontrada.");
+        return;
+      }
+
+      const formatted = {
         route,
         distance: Number(data.totalDistance) || 0,
         duration: Number(data.estimatedDuration) || 0,
-        invalid: data.invalidAddresses || data.invalid || []
+        invalid: data.invalidAddresses || []
+      };
+
+      setResult(formatted);
+
+      // 🔥 SALVAR NO BACKEND
+      await fetch("https://routeasy-backend.onrender.com/save-history", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ input })
       });
 
-      saveToHistory(input);
+      // 🔥 ATUALIZAR HISTÓRICO NA TELA
+      setHistory(prev => [{ input }, ...prev].slice(0, 5));
 
     } catch {
       setError("Erro de conexão com servidor.");
@@ -87,7 +101,6 @@ export default function RouteOptimizer() {
     }
   };
 
-  // 🔥 FORMATADOR DE TEMPO
   const formatDuration = (min: number) => {
     if (min < 60) return `${Math.round(min)} min`;
     const h = Math.floor(min / 60);
@@ -144,7 +157,6 @@ export default function RouteOptimizer() {
                 {loading ? "Calculando..." : "Otimizar Rota"}
               </button>
 
-              {/* CSV */}
               <p className={styles.helperText}>
                 Ou carregue um arquivo CSV com vários endereços:
               </p>
@@ -187,7 +199,7 @@ export default function RouteOptimizer() {
                 </>
               )}
 
-              {/* HISTÓRICO */}
+              {/* HISTÓRICO BACKEND */}
               {history.length > 0 && (
                 <div style={{ marginTop: 12 }}>
                   <strong>Histórico</strong>
@@ -203,29 +215,18 @@ export default function RouteOptimizer() {
                         marginTop: 6,
                         cursor: "pointer"
                       }}
-                      onClick={() => setInput(item)}
+                      onClick={() => setInput(item.input)}
                     >
-                      {item.split("\n")[0]}...
+                      {item.input.split("\n")[0]}...
                     </div>
                   ))}
-
-                  <button
-                    style={{ marginTop: 6, fontSize: 12 }}
-                    onClick={() => {
-                      setHistory([]);
-                      localStorage.removeItem("route_history");
-                    }}
-                  >
-                    Limpar histórico
-                  </button>
                 </div>
               )}
 
-              {/* 🔥 ENDEREÇOS INVÁLIDOS */}
+              {/* INVÁLIDOS */}
               {result?.invalid?.length > 0 && (
                 <div style={{ marginTop: 12 }}>
                   <strong style={{ color: "#b91c1c" }}>Endereços inválidos:</strong>
-
                   {result.invalid.map((addr: string, i: number) => (
                     <div key={i} style={{ fontSize: 12, color: "#b91c1c" }}>
                       • {addr}
