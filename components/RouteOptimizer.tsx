@@ -87,10 +87,9 @@ export default function RouteOptimizer() {
         return;
       }
 
-      // 🔥 GARANTE ESTRUTURA SEGURA
       setResult({
-        route: data.route ?? [],
-        invalidAddresses: data.invalidAddresses ?? [],
+        route: Array.isArray(data.route) ? data.route : [],
+        invalidAddresses: Array.isArray(data.invalidAddresses) ? data.invalidAddresses : [],
         totalDistance: data.totalDistance ?? 0,
         estimatedDuration: data.estimatedDuration ?? 0,
       });
@@ -151,20 +150,25 @@ export default function RouteOptimizer() {
           <div className={styles.panel}>
             <div className={styles.inputSection}>
               <label className={styles.label}>
-                Insira os endereços na caixa abaixo e clique "Otimizar Rota":
+                Insira os endereços manualmente na caixa abaixo e clique em "Otimizar Rota":
               </label>
-
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFileUpload}
-              />
 
               <textarea
                 className={styles.textarea}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 rows={8}
+              />
+
+              {/* 🔥 NOVA POSIÇÃO + TEXTO */}
+              <p style={{ marginTop: 10, fontSize: "14px", color: "#555" }}>
+                Ou se preferir, suba um arquivo no formato CSV para carregamento massivo de endereços.
+              </p>
+
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
               />
 
               <button className={styles.button} onClick={handleOptimize}>
