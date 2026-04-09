@@ -150,7 +150,7 @@ export default function RouteOptimizer() {
           <div className={styles.panel}>
             <div className={styles.inputSection}>
               <label className={styles.label}>
-                Insira os endereços manualmente na caixa abaixo e clique em "Otimizar Rota":
+                Insira os endereços manualmente na caixa abaixo e clique "Otimizar Rota":
               </label>
 
               <textarea
@@ -160,20 +160,22 @@ export default function RouteOptimizer() {
                 rows={8}
               />
 
-              {/* 🔥 NOVA POSIÇÃO + TEXTO */}
+              {/* 🔥 BOTÃO AGORA ACIMA DO TEXTO */}
+              <button className={styles.button} onClick={handleOptimize}>
+                {loading ? "Calculando..." : "Otimizar Rota"}
+              </button>
+
+              {/* 🔥 TEXTO EXPLICATIVO */}
               <p style={{ marginTop: 10, fontSize: "14px", color: "#555" }}>
-                Ou se preferir, suba um arquivo no formato CSV para carregamento massivo de endereços.
+                Ou, se preferir, importe na caixinha abaixo um arquivo de formato CSV para upload massivo os endereços.
               </p>
 
+              {/* 🔥 INPUT CSV */}
               <input
                 type="file"
                 accept=".csv"
                 onChange={handleFileUpload}
               />
-
-              <button className={styles.button} onClick={handleOptimize}>
-                {loading ? "Calculando..." : "Otimizar Rota"}
-              </button>
 
               {error && <div className={styles.error}>{error}</div>}
 
