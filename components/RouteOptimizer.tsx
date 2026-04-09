@@ -42,19 +42,26 @@ export default function RouteOptimizer() {
 
       const data = await res.json();
 
-      console.log("RESPONSE:", data); // 🔥 debug
+      console.log("RESPONSE:", data);
 
       if (!res.ok) {
         setError("Erro ao otimizar rota.");
         return;
       }
 
-      if (!data.route || data.route.length < 2) {
+      // 🔥 AJUSTE CRÍTICO
+      const safeResult = {
+        route: Array.isArray(data.route) ? data.route : [],
+        totalDistance: Number(data.totalDistance) || 0,
+        estimatedDuration: Number(data.estimatedDuration) || 0,
+      };
+
+      if (safeResult.route.length < 2) {
         setError("Nenhuma rota válida encontrada.");
         return;
       }
 
-      setResult(data); // 🔥 IMPORTANTE
+      setResult(safeResult);
 
       saveToHistory(input);
 
@@ -87,7 +94,7 @@ export default function RouteOptimizer() {
             {error && <div className={styles.error}>{error}</div>}
 
             {/* 🔥 RESULTADO */}
-            {result && (
+            {result && result.route.length > 1 && (
               <>
                 <div className={styles.stats}>
                   <div className={styles.stat}>
@@ -137,7 +144,18 @@ export default function RouteOptimizer() {
               <div style={{ marginTop: 10 }}>
                 <strong>Histórico</strong>
                 {history.map((item, i) => (
-                  <div key={i} onClick={() => setInput(item)}>
+                  <div
+                    key={i}
+                    style={{
+                      fontSize: 12,
+                      padding: 6,
+                      border: "1px solid #ddd",
+                      borderRadius: 6,
+                      marginTop: 6,
+                      cursor: "pointer"
+                    }}
+                    onClick={() => setInput(item)}
+                  >
                     {item.split("\n")[0]}...
                   </div>
                 ))}
@@ -147,7 +165,7 @@ export default function RouteOptimizer() {
           </div>
         </div>
 
-        {/* 🔥 MAPA ATUALIZA AQUI */}
+        {/* 🔥 MAPA */}
         <div className={styles.mapPanel}>
           <MapView locations={result?.route || []} />
         </div>
