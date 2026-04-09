@@ -30,7 +30,6 @@ export default function RouteOptimizer() {
   const [loading, setLoading] = useState(false);
   const [slowMsg, setSlowMsg] = useState(false);
 
-  // 🔥 NOVA FUNÇÃO CSV (ÚNICA ADIÇÃO REAL)
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -83,12 +82,19 @@ export default function RouteOptimizer() {
 
       const data = await res.json();
 
-      if (!res.ok) {
-        setError(data.error ?? "Erro ao otimizar rota.");
+      if (!res.ok || !data) {
+        setError("Erro ao otimizar rota.");
         return;
       }
 
-      setResult(data);
+      // 🔥 GARANTE ESTRUTURA SEGURA
+      setResult({
+        route: data.route ?? [],
+        invalidAddresses: data.invalidAddresses ?? [],
+        totalDistance: data.totalDistance ?? 0,
+        estimatedDuration: data.estimatedDuration ?? 0,
+      });
+
     } catch {
       setError("Não foi possível conectar ao servidor.");
     } finally {
@@ -109,7 +115,7 @@ export default function RouteOptimizer() {
   };
 
   const openGoogleMaps = () => {
-    if (!result?.route) return;
+    if (!result?.route?.length) return;
 
     const url =
       "https://www.google.com/maps/dir/" +
@@ -119,7 +125,7 @@ export default function RouteOptimizer() {
   };
 
   const openWaze = () => {
-    if (!result?.route) return;
+    if (!result?.route?.length) return;
 
     const first = result.route[0];
     const url = `https://waze.com/ul?ll=${first.lat},${first.lng}&navigate=yes`;
@@ -148,7 +154,6 @@ export default function RouteOptimizer() {
                 Insira os endereços na caixa abaixo e clique "Otimizar Rota":
               </label>
 
-              {/* 🔥 INPUT CSV (mantido exatamente onde você colocou) */}
               <input
                 type="file"
                 accept=".csv"
@@ -168,7 +173,7 @@ export default function RouteOptimizer() {
 
               {error && <div className={styles.error}>{error}</div>}
 
-              {result && result.route.length >= 2 && (
+              {result?.route?.length >= 2 && (
                 <>
                   <div className={styles.stats}>
                     <div className={styles.stat}>
@@ -194,33 +199,8 @@ export default function RouteOptimizer() {
                   </div>
 
                   <div style={{ display: "flex", gap: 10, marginTop: 15 }}>
-                    <button
-                      onClick={openGoogleMaps}
-                      style={{
-                        background: "#34A853",
-                        color: "#fff",
-                        padding: "10px 16px",
-                        borderRadius: 6,
-                        border: "none",
-                        cursor: "pointer",
-                      }}
-                    >
-                      📍 Abrir com Google Maps
-                    </button>
-
-                    <button
-                      onClick={openWaze}
-                      style={{
-                        background: "#1F9DE7",
-                        color: "#fff",
-                        padding: "10px 16px",
-                        borderRadius: 6,
-                        border: "none",
-                        cursor: "pointer",
-                      }}
-                    >
-                      🚗 Abrir com Waze
-                    </button>
+                    <button onClick={openGoogleMaps}>📍 Abrir com Google Maps</button>
+                    <button onClick={openWaze}>🚗 Abrir com Waze</button>
                   </div>
                 </>
               )}
