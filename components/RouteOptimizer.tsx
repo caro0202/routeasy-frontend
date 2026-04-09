@@ -42,26 +42,24 @@ export default function RouteOptimizer() {
 
       const data = await res.json();
 
-      console.log("RESPONSE:", data);
-
       if (!res.ok) {
         setError("Erro ao otimizar rota.");
         return;
       }
 
-      // 🔥 AJUSTE CRÍTICO
-      const safeResult = {
-        route: Array.isArray(data.route) ? data.route : [],
-        totalDistance: Number(data.totalDistance) || 0,
-        estimatedDuration: Number(data.estimatedDuration) || 0,
-      };
+      // 🔥 NORMALIZAÇÃO SEGURA
+      const safeRoute = Array.isArray(data.route) ? data.route : [];
 
-      if (safeResult.route.length < 2) {
+      if (safeRoute.length < 2) {
         setError("Nenhuma rota válida encontrada.");
         return;
       }
 
-      setResult(safeResult);
+      setResult({
+        route: safeRoute,
+        totalDistance: Number(data.totalDistance) || 0,
+        estimatedDuration: Number(data.estimatedDuration) || 0
+      });
 
       saveToHistory(input);
 
@@ -77,6 +75,7 @@ export default function RouteOptimizer() {
     <div className={styles.page}>
       <div className={styles.container}>
 
+        {/* 🔹 PAINEL (NÃO ALTERAR ESTRUTURA) */}
         <div className={styles.panel}>
           <div className={styles.inputSection}>
 
@@ -93,8 +92,8 @@ export default function RouteOptimizer() {
 
             {error && <div className={styles.error}>{error}</div>}
 
-            {/* 🔥 RESULTADO */}
-            {result && result.route.length > 1 && (
+            {/* 🔥 RESULTADO SÓ APARECE SE VÁLIDO */}
+            {result?.route?.length > 1 && (
               <>
                 <div className={styles.stats}>
                   <div className={styles.stat}>
@@ -139,10 +138,11 @@ export default function RouteOptimizer() {
               </>
             )}
 
-            {/* HISTÓRICO */}
+            {/* 🔥 HISTÓRICO CONTROLADO */}
             {history.length > 0 && (
               <div style={{ marginTop: 10 }}>
                 <strong>Histórico</strong>
+
                 {history.map((item, i) => (
                   <div
                     key={i}
@@ -165,9 +165,9 @@ export default function RouteOptimizer() {
           </div>
         </div>
 
-        {/* 🔥 MAPA */}
+        {/* 🔹 MAPA (SEMPRE RENDERIZA, MAS SEGURO) */}
         <div className={styles.mapPanel}>
-          <MapView locations={result?.route || []} />
+          <MapView locations={result?.route ?? []} />
         </div>
 
       </div>
