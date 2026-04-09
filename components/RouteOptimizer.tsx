@@ -30,6 +30,27 @@ export default function RouteOptimizer() {
   const [loading, setLoading] = useState(false);
   const [slowMsg, setSlowMsg] = useState(false);
 
+  // 🔥 NOVA FUNÇÃO CSV (ÚNICA ADIÇÃO REAL)
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+
+      const lines = text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+
+      setInput(lines.join("\n"));
+    };
+
+    reader.readAsText(file);
+  };
+
   const handleOptimize = async () => {
     setError(null);
     setResult(null);
@@ -77,7 +98,6 @@ export default function RouteOptimizer() {
     }
   };
 
-  // 🔥 ÚNICA ADIÇÃO (LÓGICA DE TEMPO)
   const formatDuration = (minutes: number) => {
     const total = Math.round(minutes);
     const h = Math.floor(total / 60);
@@ -127,6 +147,13 @@ export default function RouteOptimizer() {
               <label className={styles.label}>
                 Insira os endereços na caixa abaixo e clique "Otimizar Rota":
               </label>
+
+              {/* 🔥 INPUT CSV (mantido exatamente onde você colocou) */}
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+              />
 
               <textarea
                 className={styles.textarea}
