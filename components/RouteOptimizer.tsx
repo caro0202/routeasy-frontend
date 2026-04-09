@@ -29,9 +29,11 @@ export default function RouteOptimizer() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [dragActive, setDragActive] = useState(false);
 
-  const processFile = (file: File) => {
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
     setFileName(file.name);
 
     const reader = new FileReader();
@@ -48,18 +50,6 @@ export default function RouteOptimizer() {
     };
 
     reader.readAsText(file);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processFile(file);
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDragActive(false);
-    const file = e.dataTransfer.files[0];
-    if (file) processFile(file);
   };
 
   const handleOptimize = async () => {
@@ -129,92 +119,104 @@ export default function RouteOptimizer() {
 
   return (
     <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
+          <div className={styles.logo}>⏱️Caro's Route Planner</div>
+          <p className={styles.tagline}>
+            Encontre a ordem mais eficiente para suas paradas
+          </p>
+        </div>
+      </header>
+
       <main className={styles.main}>
         <div className={styles.container}>
-
-          {/* 🔹 PAINEL ESQUERDO */}
           <div className={styles.panel}>
             <div className={styles.inputSection}>
+              <label className={styles.label}>
+                Insira os endereços na caixa abaixo e clique "Otimizar Rota":
+              </label>
 
-              {/* 🔥 DRAG + TEXTAREA */}
-              <div
-                onDrop={handleDrop}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragActive(true);
-                }}
-                onDragLeave={() => setDragActive(false)}
-                style={{
-                  border: dragActive ? "2px dashed #4f8cff" : "2px dashed #ccc",
-                  borderRadius: 8,
-                  padding: 10,
-                  transition: "0.2s",
-                  background: dragActive ? "rgba(79,140,255,0.1)" : "transparent"
-                }}
-              >
-                <textarea
-                  className={styles.textarea}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  rows={8}
-                />
-              </div>
+              <textarea
+                className={styles.textarea}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                rows={8}
+              />
 
               <button className={styles.button} onClick={handleOptimize}>
                 {loading ? "Calculando..." : "Otimizar Rota"}
               </button>
 
-              {/* 🔥 UPLOAD */}
-              <p className={styles.helperText}>
-                Ou arraste um arquivo CSV aqui ou clique abaixo para carregar:
+              {/* 🔥 BLOCO CSV (SEM QUEBRAR LAYOUT) */}
+              <p style={{ marginTop: 12, fontSize: "13px", color: "#666" }}>
+                Ou se preferir, carregue um arquivo CSV com vários endereços:
               </p>
 
-              <label className={styles.uploadBtn}>
+              <label
+                style={{
+                  display: "inline-block",
+                  padding: "8px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #ddd",
+                  background: "#f9f9f9",
+                  cursor: "pointer",
+                  marginTop: 6
+                }}
+              >
                 📁 Carregar CSV
                 <input
                   type="file"
                   accept=".csv"
                   onChange={handleFileUpload}
-                  hidden
+                  style={{ display: "none" }}
                 />
               </label>
 
-              {fileName && <p className={styles.fileName}>{fileName}</p>}
+              {fileName && (
+                <p style={{ fontSize: "12px", color: "#777", marginTop: 4 }}>
+                  {fileName}
+                </p>
+              )}
 
               {error && <div className={styles.error}>{error}</div>}
 
               {result?.route?.length >= 2 && (
                 <>
                   <div className={styles.stats}>
-                    <div>
-                      <strong>{result.totalDistance.toFixed(2)} km</strong>
-                      <p>Distância</p>
+                    <div className={styles.stat}>
+                      <span className={styles.statValue}>
+                        {result.totalDistance.toFixed(2)} km
+                      </span>
+                      <span className={styles.statLabel}>Distância Total</span>
                     </div>
-                    <div>
-                      <strong>{formatDuration(result.estimatedDuration)}</strong>
-                      <p>Tempo</p>
+
+                    <div className={styles.stat}>
+                      <span className={styles.statValue}>
+                        {formatDuration(result.estimatedDuration)}
+                      </span>
+                      <span className={styles.statLabel}>Tempo Estimado</span>
                     </div>
-                    <div>
-                      <strong>{result.route.length}</strong>
-                      <p>Paradas</p>
+
+                    <div className={styles.stat}>
+                      <span className={styles.statValue}>
+                        {result.route.length}
+                      </span>
+                      <span className={styles.statLabel}>Paradas</span>
                     </div>
                   </div>
 
-                  <div className={styles.buttonsRow}>
+                  <div style={{ display: "flex", gap: 10, marginTop: 15 }}>
                     <button onClick={openGoogleMaps}>📍 Google Maps</button>
                     <button onClick={openWaze}>🚗 Waze</button>
                   </div>
                 </>
               )}
-
             </div>
           </div>
 
-          {/* 🔹 MAPA */}
           <div className={styles.mapPanel}>
             <MapView locations={mapLocations} />
           </div>
-
         </div>
       </main>
     </div>
