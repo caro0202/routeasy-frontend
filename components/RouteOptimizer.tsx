@@ -10,26 +10,15 @@ interface RouteStop {
   address: string;
   lat: number;
   lng: number;
-  stopIndex: number;
-  distanceToNext: number | null;
 }
-
-interface OptimizeResult {
-  route: RouteStop[];
-  totalDistance: number;
-  estimatedDuration: number;
-}
-
-const EXAMPLE_ADDRESSES = `Rua A, São Paulo
-Av. Paulista, 1000, São Paulo
-Aeroporto de Guarulhos, SP`;
 
 export default function RouteOptimizer() {
-  const [input, setInput] = useState(EXAMPLE_ADDRESSES);
-  const [result, setResult] = useState<OptimizeResult | null>(null);
+  const [input, setInput] = useState("");
+  const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
+  const [fileName, setFileName] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("route_history");
@@ -40,6 +29,21 @@ export default function RouteOptimizer() {
     const updated = [data, ...history].slice(0, 5);
     setHistory(updated);
     localStorage.setItem("route_history", JSON.stringify(updated));
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split("\n").map(l => l.trim()).filter(l => l);
+      setInput(lines.join("\n"));
+    };
+    reader.readAsText(file);
   };
 
   const handleOptimize = async () => {
@@ -65,17 +69,17 @@ export default function RouteOptimizer() {
         return;
       }
 
-      const safeRoute = Array.isArray(data.route) ? data.route : [];
+      const route = Array.isArray(data.route) ? data.route : [];
 
-      if (safeRoute.length < 2) {
+      if (route.length < 2) {
         setError("Nenhuma rota válida encontrada.");
         return;
       }
 
       setResult({
-        route: safeRoute,
-        totalDistance: Number(data.totalDistance) || 0,
-        estimatedDuration: Number(data.estimatedDuration) || 0
+        route,
+        distance: Number(data.totalDistance) || 0,
+        duration: Number(data.estimatedDuration) || 0
       });
 
       saveToHistory(input);
@@ -92,7 +96,7 @@ export default function RouteOptimizer() {
 
     const url =
       "https://www.google.com/maps/dir/" +
-      result.route.map((p) => `${p.lat},${p.lng}`).join("/");
+      result.route.map((p: RouteStop) => `${p.lat},${p.lng}`).join("/");
 
     window.open(url, "_blank");
   };
@@ -101,18 +105,11 @@ export default function RouteOptimizer() {
     if (!result?.route?.length) return;
 
     const first = result.route[0];
-    window.open(
-      `https://waze.com/ul?ll=${first.lat},${first.lng}&navigate=yes`,
-      "_blank"
-    );
+    window.open(`https://waze.com/ul?ll=${first.lat},${first.lng}&navigate=yes`, "_blank");
   };
-
-  const mapLocations = result?.route ?? [];
 
   return (
     <div className={styles.page}>
-
-      {/* 🔹 HEADER RESTAURADO */}
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <div className={styles.logo}>⏱️ Caro's Route Planner</div>
@@ -125,12 +122,11 @@ export default function RouteOptimizer() {
       <main className={styles.main}>
         <div className={styles.container}>
 
-          {/* 🔹 PAINEL ESQUERDO */}
           <div className={styles.panel}>
             <div className={styles.inputSection}>
 
-              <label className={styles.label}>
-                Insira os endereços na caixa abaixo e clique "Otimizar Rota":
+              <label className={styles.label} style={{ fontWeight: 400 }}>
+                Insira os endereços abaixo e clique em <strong>Otimizar Rota</strong>
               </label>
 
               <textarea
@@ -144,35 +140,64 @@ export default function RouteOptimizer() {
                 {loading ? "Calculando..." : "Otimizar Rota"}
               </button>
 
+              {/* CSV */}
+              <p className={styles.helperText}>
+                Ou carregue um arquivo CSV com vários endereços:
+              </p>
+
+              <label className={styles.uploadBtn}>
+                📁 Carregar CSV
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  hidden
+                />
+              </label>
+
+              {fileName && <p className={styles.fileName}>{fileName}</p>}
+
               {error && <div className={styles.error}>{error}</div>}
 
-              {/* 🔥 RESULTADO */}
-              {result?.route?.length >= 2 && (
+              {/* RESULTADO */}
+              {result && (
                 <>
                   <div className={styles.stats}>
                     <div className={styles.stat}>
                       <span className={styles.statValue}>
-                        {result.totalDistance.toFixed(2)} km
+                        {result.distance.toFixed(2)} km
                       </span>
-                      <span className={styles.statLabel}>Distância</span>
                     </div>
 
                     <div className={styles.stat}>
                       <span className={styles.statValue}>
-                        {Math.round(result.estimatedDuration)} min
+                        {Math.round(result.duration)} min
                       </span>
-                      <span className={styles.statLabel}>Tempo</span>
                     </div>
                   </div>
 
+                  {/* BOTÕES BONITOS */}
                   <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-                    <button onClick={openGoogleMaps}>Google Maps</button>
-                    <button onClick={openWaze}>Waze</button>
+                    <button
+                      className={styles.button}
+                      style={{ background: "#34A853" }}
+                      onClick={openGoogleMaps}
+                    >
+                      📍 Abrir no Maps
+                    </button>
+
+                    <button
+                      className={styles.button}
+                      style={{ background: "#1F9DE7" }}
+                      onClick={openWaze}
+                    >
+                      🚗 Abrir no Waze
+                    </button>
                   </div>
                 </>
               )}
 
-              {/* 🔥 HISTÓRICO */}
+              {/* HISTÓRICO */}
               {history.length > 0 && (
                 <div style={{ marginTop: 12 }}>
                   <strong>Histórico</strong>
@@ -209,9 +234,8 @@ export default function RouteOptimizer() {
             </div>
           </div>
 
-          {/* 🔹 MAPA DIREITA */}
           <div className={styles.mapPanel}>
-            <MapView locations={mapLocations} />
+            <MapView locations={result?.route || []} />
           </div>
 
         </div>
