@@ -6,9 +6,27 @@ import styles from "./RouteOptimizer.module.css";
 
 const MapView = dynamic(() => import("./MapView"), { ssr: false });
 
+interface RouteStop {
+  address: string;
+  lat: number;
+  lng: number;
+  stopIndex: number;
+  distanceToNext: number | null;
+}
+
+interface OptimizeResult {
+  route: RouteStop[];
+  totalDistance: number;
+  estimatedDuration: number;
+}
+
+const EXAMPLE_ADDRESSES = `Rua A, São Paulo
+Av. Paulista, 1000, São Paulo
+Aeroporto de Guarulhos, SP`;
+
 export default function RouteOptimizer() {
-  const [input, setInput] = useState("");
-  const [result, setResult] = useState<any>(null);
+  const [input, setInput] = useState(EXAMPLE_ADDRESSES);
+  const [result, setResult] = useState<OptimizeResult | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
@@ -47,7 +65,6 @@ export default function RouteOptimizer() {
         return;
       }
 
-      // 🔥 NORMALIZAÇÃO SEGURA
       const safeRoute = Array.isArray(data.route) ? data.route : [];
 
       if (safeRoute.length < 2) {
@@ -63,114 +80,142 @@ export default function RouteOptimizer() {
 
       saveToHistory(input);
 
-    } catch (e) {
-      console.error(e);
+    } catch {
       setError("Erro de conexão com servidor.");
     } finally {
       setLoading(false);
     }
   };
 
+  const openGoogleMaps = () => {
+    if (!result?.route?.length) return;
+
+    const url =
+      "https://www.google.com/maps/dir/" +
+      result.route.map((p) => `${p.lat},${p.lng}`).join("/");
+
+    window.open(url, "_blank");
+  };
+
+  const openWaze = () => {
+    if (!result?.route?.length) return;
+
+    const first = result.route[0];
+    window.open(
+      `https://waze.com/ul?ll=${first.lat},${first.lng}&navigate=yes`,
+      "_blank"
+    );
+  };
+
+  const mapLocations = result?.route ?? [];
+
   return (
     <div className={styles.page}>
-      <div className={styles.container}>
 
-        {/* 🔹 PAINEL (NÃO ALTERAR ESTRUTURA) */}
-        <div className={styles.panel}>
-          <div className={styles.inputSection}>
+      {/* 🔹 HEADER RESTAURADO */}
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
+          <div className={styles.logo}>⏱️ Caro's Route Planner</div>
+          <p className={styles.tagline}>
+            Encontre a ordem mais eficiente para suas paradas
+          </p>
+        </div>
+      </header>
 
-            <textarea
-              className={styles.textarea}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Digite endereços..."
-            />
+      <main className={styles.main}>
+        <div className={styles.container}>
 
-            <button className={styles.button} onClick={handleOptimize}>
-              {loading ? "Calculando..." : "Otimizar Rota"}
-            </button>
+          {/* 🔹 PAINEL ESQUERDO */}
+          <div className={styles.panel}>
+            <div className={styles.inputSection}>
 
-            {error && <div className={styles.error}>{error}</div>}
+              <label className={styles.label}>
+                Insira os endereços na caixa abaixo e clique "Otimizar Rota":
+              </label>
 
-            {/* 🔥 RESULTADO SÓ APARECE SE VÁLIDO */}
-            {result?.route?.length > 1 && (
-              <>
-                <div className={styles.stats}>
-                  <div className={styles.stat}>
-                    <span className={styles.statValue}>
-                      {result.totalDistance.toFixed(2)} km
-                    </span>
-                    <span className={styles.statLabel}>Distância</span>
+              <textarea
+                className={styles.textarea}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                rows={8}
+              />
+
+              <button className={styles.button} onClick={handleOptimize}>
+                {loading ? "Calculando..." : "Otimizar Rota"}
+              </button>
+
+              {error && <div className={styles.error}>{error}</div>}
+
+              {/* 🔥 RESULTADO */}
+              {result?.route?.length >= 2 && (
+                <>
+                  <div className={styles.stats}>
+                    <div className={styles.stat}>
+                      <span className={styles.statValue}>
+                        {result.totalDistance.toFixed(2)} km
+                      </span>
+                      <span className={styles.statLabel}>Distância</span>
+                    </div>
+
+                    <div className={styles.stat}>
+                      <span className={styles.statValue}>
+                        {Math.round(result.estimatedDuration)} min
+                      </span>
+                      <span className={styles.statLabel}>Tempo</span>
+                    </div>
                   </div>
 
-                  <div className={styles.stat}>
-                    <span className={styles.statValue}>
-                      {Math.round(result.estimatedDuration)} min
-                    </span>
-                    <span className={styles.statLabel}>Tempo</span>
+                  <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                    <button onClick={openGoogleMaps}>Google Maps</button>
+                    <button onClick={openWaze}>Waze</button>
                   </div>
-                </div>
+                </>
+              )}
 
-                <div style={{ display: "flex", gap: 10 }}>
+              {/* 🔥 HISTÓRICO */}
+              {history.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <strong>Histórico</strong>
+
+                  {history.map((item, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        fontSize: 12,
+                        padding: 6,
+                        border: "1px solid #ddd",
+                        borderRadius: 6,
+                        marginTop: 6,
+                        cursor: "pointer"
+                      }}
+                      onClick={() => setInput(item)}
+                    >
+                      {item.split("\n")[0]}...
+                    </div>
+                  ))}
+
                   <button
-                    onClick={() =>
-                      window.open(
-                        "https://www.google.com/maps/dir/" +
-                          result.route.map((p: any) => `${p.lat},${p.lng}`).join("/"),
-                        "_blank"
-                      )
-                    }
-                  >
-                    Google Maps
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      window.open(
-                        `https://waze.com/ul?ll=${result.route[0].lat},${result.route[0].lng}&navigate=yes`,
-                        "_blank"
-                      )
-                    }
-                  >
-                    Waze
-                  </button>
-                </div>
-              </>
-            )}
-
-            {/* 🔥 HISTÓRICO CONTROLADO */}
-            {history.length > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <strong>Histórico</strong>
-
-                {history.map((item, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      fontSize: 12,
-                      padding: 6,
-                      border: "1px solid #ddd",
-                      borderRadius: 6,
-                      marginTop: 6,
-                      cursor: "pointer"
+                    style={{ marginTop: 6, fontSize: 12 }}
+                    onClick={() => {
+                      setHistory([]);
+                      localStorage.removeItem("route_history");
                     }}
-                    onClick={() => setInput(item)}
                   >
-                    {item.split("\n")[0]}...
-                  </div>
-                ))}
-              </div>
-            )}
+                    Limpar histórico
+                  </button>
+                </div>
+              )}
 
+            </div>
           </div>
-        </div>
 
-        {/* 🔹 MAPA (SEMPRE RENDERIZA, MAS SEGURO) */}
-        <div className={styles.mapPanel}>
-          <MapView locations={result?.route ?? []} />
-        </div>
+          {/* 🔹 MAPA DIREITA */}
+          <div className={styles.mapPanel}>
+            <MapView locations={mapLocations} />
+          </div>
 
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
