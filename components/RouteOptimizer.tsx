@@ -54,7 +54,7 @@ export default function RouteOptimizer() {
     const slowTimer = setTimeout(() => setSlowMsg(true), 8000);
 
     try {
-      const res = await fetch("/api/optimize", {
+      const res = await fetch("https://routeasy-backend.onrender.com/optimize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ addresses: lines }),
